@@ -10,6 +10,8 @@ import (
 	"time"
 	"github.com/olivere/elastic"
 	"context"
+	"sort"
+	"log"
 )
 
 type Base struct {
@@ -36,7 +38,7 @@ type Market struct {
 }
 
 func main() {
-/*	markets := []string {
+	markets := []string {
 		"BTC-2GIVE",
 		"BTC-ABY",
 		"BTC-ADA",
@@ -229,14 +231,14 @@ func main() {
 		"BTC-ZEN",
 		"BTC-ZRX",
 	}
-*/
+
 	client, err := elastic.NewSimpleClient()
 	if err != nil {
 		panic(err)
 	}
 
-	GetStats("BTC-ZEC", client)
 
+	UpdateMarketData(markets, client)
 	/*
 	for i, market := range markets {
 		candles := GetCandles(market)
@@ -248,6 +250,47 @@ func main() {
 
 		fmt.Printf("Did %d out of %d\n", i+1, len(markets))
 	}*/
+}
+
+func UpdateMarketData(markets []string, client *elastic.Client) {
+	for i, market := range markets {
+
+		q := elastic.NewMatchPhraseQuery("market", market)
+		searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(1).Sort("time", false).Do(context.Background())
+		if err != nil {
+			log.Printf("Got error getting latest candle from es for market %v: %v", market, err)
+			continue
+		}
+
+		if len(searchResult.Hits.Hits) == 0 {
+			log.Print("Expecting 1 es hit, but found none for %v", market)
+			continue
+		}
+
+		c := &PrettyCandle{}
+		err = json.Unmarshal(*searchResult.Hits.Hits[0].Source, c)
+		if err != nil {
+			log.Printf("Got error unmarshaling %v from es: %v", market, err)
+			continue
+		}
+
+		oldT := time.Time(c.Timestamp)
+
+		candles := GetCandles(market)
+		for _, c := range candles {
+			pc := ConvertCandle(c, market)
+
+			newT := time.Time(pc.Timestamp)
+
+			if !newT.After(oldT) {
+				continue
+			}
+
+			StoreInElastic(pc, client)
+		}
+
+		fmt.Printf("Did %d out of %d\n", i+1, len(markets))
+	}
 }
 
 func StoreInElastic(candle PrettyCandle, client *elastic.Client) {
@@ -322,25 +365,63 @@ func GetMarkets() {
 }
 
 func GetStats(market string, client *elastic.Client) error {
-	q := elastic.NewMatchPhraseQuery("market", "BTC-LTC")
-	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).Do(context.Background())
+	q := elastic.NewMatchPhraseQuery("market", market)
+	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(10000).Do(context.Background())
 	if err != nil {
 		return err
 	}
 
+	candles := []*PrettyCandle{}
 	for _, hit := range searchResult.Hits.Hits {
-		d, err := json.Marshal(hit.Source)
+		c := &PrettyCandle{}
+		err := json.Unmarshal(*hit.Source, c)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Printf("%s\n", string(d))
+		candles = append(candles, c)
 	}
+
+	fmt.Printf("%v\n", len(candles))
+
+	calcCandleStats(candles)
 
 	return nil
 }
 
+type CandleStats struct {
+	Interval int
+	Market string
+	Avg float32
+	Med float32
+	High float32
+	Low float32
+	Sum float32
+}
 
+func calcCandleStats(candles []*PrettyCandle) {
+	fmt.Printf("%v\n", len(candles))
+	cs := &CandleStats{}
+	cs.Interval = candles[0].Interval
+	cs.Market = candles[0].Market
+
+	sort.Slice(candles, func(i, j int) bool {
+		return candles[i].BaseVolume < candles[j].BaseVolume
+	})
+
+	var sum float32 = 0.0
+	for _, c := range candles {
+		sum += c.BaseVolume
+	}
+
+	cs.Avg = sum / float32(len(candles))
+	cs.Med = candles[len(candles)/2].BaseVolume
+	cs.High = candles[len(candles)-1].BaseVolume
+	cs.Low = candles[0].BaseVolume
+	cs.Sum = sum
+
+	fmt.Printf("%+v", cs)
+}
 
 type Candle struct {
 	Open float32 `json:"O"`
