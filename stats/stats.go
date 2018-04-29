@@ -76,7 +76,7 @@ func calcCandleStats(candles []*bittrex.PrettyCandle) *CandleStats {
 	return cs
 }
 
-// Outputs all market stats found in elastic search to output.txt
+// Outputs all market stats found in elastic search to stats.txt
 func OutputStats(markets []string, client *elastic.Client) {
 	cs := []*CandleStats{}
 	for i, m := range markets {
@@ -90,7 +90,7 @@ func OutputStats(markets []string, client *elastic.Client) {
 		cs = append(cs, s)
 	}
 
-	f, err := os.OpenFile("./output.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	f, err := os.OpenFile("./stats.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		fmt.Printf("error opening file: %v\n", err)
 	}
