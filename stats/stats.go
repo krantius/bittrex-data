@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"os"
 	"sort"
 
-	"github.com/krantius/bittrex-data/bittrex"
 	"github.com/olivere/elastic"
+	"github.com/krantius/bittrex-data/bittrex"
+	"log"
+	"os"
 )
 
 type CandleStats struct {
@@ -22,8 +22,38 @@ type CandleStats struct {
 	Sum      float32
 }
 
+
+// Outputs all market stats found in elastic search to stats.txt
+func OutputStats(markets []string, client *elastic.Client) {
+	cs := []*CandleStats{}
+	for i, m := range markets {
+		s, err := getStats(m, client)
+		if err != nil {
+			log.Printf("error getting stats: %v", err)
+			continue
+		}
+
+		fmt.Printf("Did %d out of %d\n", i+1, len(markets))
+		cs = append(cs, s)
+	}
+
+	// Guarantees a fresh file
+	f, err := os.Create("./stats.txt");
+	if err != nil {
+		fmt.Printf("failed to create stats file: %v\n", err)
+		return
+	}
+
+	d, err := json.Marshal(cs)
+	if err != nil {
+		log.Printf("failed to marshal candles: %v", err)
+	}
+
+	f.Write(d)
+}
+
 // Gets candles from elastic search and calculates the CandleStats
-func GetStats(market string, client *elastic.Client) (*CandleStats, error) {
+func getStats(market string, client *elastic.Client) (*CandleStats, error) {
 	q := elastic.NewMatchPhraseQuery("market", market)
 	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(10000).Do(context.Background())
 	if err != nil {
@@ -74,31 +104,4 @@ func calcCandleStats(candles []*bittrex.PrettyCandle) *CandleStats {
 
 	fmt.Printf("%+v", cs)
 	return cs
-}
-
-// Outputs all market stats found in elastic search to stats.txt
-func OutputStats(markets []string, client *elastic.Client) {
-	cs := []*CandleStats{}
-	for i, m := range markets {
-		s, err := GetStats(m, client)
-		if err != nil {
-			log.Printf("error getting stats: %v", err)
-			continue
-		}
-
-		fmt.Printf("Did %d out of %d\n", i+1, len(markets))
-		cs = append(cs, s)
-	}
-
-	f, err := os.OpenFile("./stats.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		fmt.Printf("error opening file: %v\n", err)
-	}
-
-	d, err := json.Marshal(cs)
-	if err != nil {
-		log.Printf("failed to marshal candles: %v", err)
-	}
-
-	f.Write(d)
 }
