@@ -55,7 +55,7 @@ func OutputStats(markets []string, client *elastic.Client) {
 // Gets candles from elastic search and calculates the CandleStats
 func getStats(market string, client *elastic.Client) (*CandleStats, error) {
 	q := elastic.NewMatchPhraseQuery("market", market)
-	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(10000).Do(context.Background())
+	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(100000).Do(context.Background())
 	if err != nil {
 		return nil, err
 	}
