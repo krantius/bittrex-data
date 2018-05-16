@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/olivere/elastic"
-	"github.com/krantius/bittrex-data/bittrex"
 	"log"
 	"os"
+
+	"github.com/krantius/bittrex-data/bittrex"
+	"github.com/olivere/elastic"
 )
 
 type CandleStats struct {
@@ -21,7 +22,6 @@ type CandleStats struct {
 	Low      float32
 	Sum      float32
 }
-
 
 // Outputs all market stats found in elastic search to stats.txt
 func OutputStats(markets []string, client *elastic.Client) {
@@ -38,7 +38,7 @@ func OutputStats(markets []string, client *elastic.Client) {
 	}
 
 	// Guarantees a fresh file
-	f, err := os.Create("./stats.txt");
+	f, err := os.Create("./stats.txt")
 	if err != nil {
 		fmt.Printf("failed to create stats file: %v\n", err)
 		return
@@ -55,7 +55,7 @@ func OutputStats(markets []string, client *elastic.Client) {
 // Gets candles from elastic search and calculates the CandleStats
 func getStats(market string, client *elastic.Client) (*CandleStats, error) {
 	q := elastic.NewMatchPhraseQuery("market", market)
-	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(100000).Do(context.Background())
+	searchResult, err := client.Search().Index("bittrex").Type("candle").Query(q).From(0).Size(10000).Do(context.Background())
 	if err != nil {
 		return nil, err
 	}
