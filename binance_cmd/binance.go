@@ -12,20 +12,22 @@ import (
 
 	"github.com/adshao/go-binance"
 	"github.com/olivere/elastic"
+	"strconv"
+	"github.com/krantius/bittrex-data/bittrex"
 )
 
 type PrettyKline struct {
 	OpenTime                 int64     `json:"openTime"`
-	Open                     string    `json:"open"`
-	High                     string    `json:"high"`
-	Low                      string    `json:"low"`
-	Close                    string    `json:"close"`
-	Volume                   string    `json:"volume"`
+	Open                     float64    `json:"open"`
+	High                     float64    `json:"high"`
+	Low                      float64    `json:"low"`
+	Close                    float64    `json:"close"`
+	Volume                   float64    `json:"volume"`
 	CloseTime                int64     `json:"closeTime"`
-	QuoteAssetVolume         string    `json:"quoteAssetVolume"`
+	QuoteAssetVolume         float64    `json:"quoteAssetVolume"`
 	TradeNum                 int64     `json:"tradeNum"`
-	TakerBuyBaseAssetVolume  string    `json:"takerBuyBaseAssetVolume"`
-	TakerBuyQuoteAssetVolume string    `json:"takerBuyQuoteAssetVolume"`
+	TakerBuyBaseAssetVolume  float64    `json:"takerBuyBaseAssetVolume"`
+	TakerBuyQuoteAssetVolume float64    `json:"takerBuyQuoteAssetVolume"`
 	Market                   string    `json:"market"`
 	Time                     time.Time `json:"time"`
 }
@@ -42,18 +44,27 @@ func GetCandles(market string) []*PrettyKline {
 
 	all := []*PrettyKline{}
 	for _, candle := range klines {
+		open, _ := strconv.ParseFloat(candle.Open, 64)
+		high, _ := strconv.ParseFloat(candle.High, 64)
+		low, _ := strconv.ParseFloat(candle.Low, 64)
+		close, _ := strconv.ParseFloat(candle.Close, 64)
+		volume, _ := strconv.ParseFloat(candle.Volume, 64)
+		quoteAssetVolume, _ := strconv.ParseFloat(candle.QuoteAssetVolume, 64)
+		takerBuyBaseAssetVolume, _ := strconv.ParseFloat(candle.TakerBuyBaseAssetVolume, 64)
+		takerBuyQuoteAssetVolume, _ := strconv.ParseFloat(candle.TakerBuyQuoteAssetVolume, 64)
+
 		tmp := &PrettyKline{
 			OpenTime:                 candle.OpenTime,
-			Open:                     candle.Open,
-			High:                     candle.High,
-			Low:                      candle.Low,
-			Close:                    candle.Close,
-			Volume:                   candle.Volume,
+			Open:                     open * bittrex.Satoshi,
+			High:                     high * bittrex.Satoshi,
+			Low:                      low * bittrex.Satoshi ,
+			Close:                    close * bittrex.Satoshi,
+			Volume:                   volume,
 			CloseTime:                candle.CloseTime,
-			QuoteAssetVolume:         candle.QuoteAssetVolume,
+			QuoteAssetVolume:         quoteAssetVolume,
 			TradeNum:                 candle.TradeNum,
-			TakerBuyBaseAssetVolume:  candle.TakerBuyBaseAssetVolume,
-			TakerBuyQuoteAssetVolume: candle.TakerBuyQuoteAssetVolume,
+			TakerBuyBaseAssetVolume:  takerBuyBaseAssetVolume,
+			TakerBuyQuoteAssetVolume: takerBuyQuoteAssetVolume,
 			Market: market,
 			Time:   time.Unix(candle.CloseTime/1000, 0),
 		}
